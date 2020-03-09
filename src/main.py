@@ -4,62 +4,7 @@ from agents import *
 from emulator import *
 from simulators import *
 from visualizer import *
-
-
-def get_model(model_type, env, learning_rate, path):
-
-	print_t = False
-
-	if model_type == 'MLP':
-		m = 16
-		layers = 5
-		hidden_size = [m]*layers
-		model = QModelMLP(env.state_shape, env.n_action)
-		model.build_model(hidden_size, learning_rate=learning_rate, activation='tanh')
-
-	elif model_type == 'conv':
-
-		m = 16
-		layers = 2
-		filter_num = [m]*layers
-		filter_size = [3] * len(filter_num)
-		#use_pool = [False, True, False, True]
-		#use_pool = [False, False, True, False, False, True]
-		use_pool = None
-		#dilation = [1,2,4,8]
-		dilation = None
-		dense_units = [48,24]
-		model = QModelConv(env.state_shape, env.n_action)
-		model.build_model(filter_num, filter_size, dense_units, learning_rate,
-			dilation=dilation, use_pool=use_pool)
-
-	elif model_type == 'RNN':
-
-		m = 32
-		layers = 3
-		hidden_size = [m]*layers
-		dense_units = [m,m]
-		model = QModelGRU(env.state_shape, env.n_action)
-		model.build_model(hidden_size, dense_units, learning_rate=learning_rate)
-		print_t = True
-
-	elif model_type == 'ConvRNN':
-	
-		m = 8
-		conv_n_hidden = [m,m]
-		RNN_n_hidden = [m,m]
-		dense_units = [m,m]
-		model = QModelConvGRU(env.state_shape, env.n_action)
-		model.build_model(conv_n_hidden, RNN_n_hidden, dense_units, learning_rate=learning_rate)
-		print_t = True
-
-	elif model_type == 'pretrained':
-		model = load_model(path, learning_rate)
-
-	else:
-		raise ValueError
-		
-	return model, print_t
+from models import *
 
 
 def main():
@@ -93,6 +38,7 @@ def main():
 	exploration_min = 0.01
 
 	# --- Data Pipeline ---
+
 	path = os.path.join('..', 'data', experiment_type)
 	# check if DB has already been generated, if not create it
 	db = Generator()
@@ -115,33 +61,60 @@ def main():
 	data_pipe.prep_samples(phase='training')
 
 	# --- Environment ---
-	env = Market(data_pipe, lookup_window, t_cost)
-	model, print_t = get_model(model_type, env, learning_rate, fld_load)
+
+	env = Market(data_pipe=data_pipe,
+				 lookup_window=lookup_window,
+				 t_cost=t_cost)
+	m = Models()
+	model, print_t = m.get_model(model_type, env, learning_rate)
 	model.model.summary()
 
 	# --- Agent ---
-	agent = Agent(model, discount_factor=discount_factor, batch_size=batch_size)
+
+	agent = Agent(model=model,
+				  batch_size=batch_size,
+				  discount_factor=discount_factor)
+
+	# --- Visualizer ---
+
 	visualizer = Visualizer(env.action_labels)
 
-	fld_save = os.path.join(OUTPUT_FLD, sampler.title, model.model_name,
-							str((env.lookup_window, sampler.episode_window, agent.batch_size, learning_rate,
+	# --- Output ---
+
+	results_path = os.path.join(OUTPUT_FLD, data_pipe.experiment_type, model.model_name,
+							str((env.lookup_window, data_pipe.episode_duration, agent.batch_size, learning_rate,
 			 agent.discount_factor, exploration_decay, env.t_cost)))
 	
 	print('='*20)
-	print(fld_save)
+	print(f'Results will be saved in: \n{results_path}')
 	print('='*20)
 
-	# --- Experiment - training ---
-	simulator = Simulator(agent, env, visualizer=visualizer, fld_save=fld_save)
-	simulator.train(n_episode_training, save_per_episode=1, exploration_decay=exploration_decay, 
-		exploration_min=exploration_min, print_t=print_t, exploration_init=exploration_init)
-	agent.model = load_model(os.path.join(fld_save, 'model'), learning_rate)
+	# --- Experiment ----
 
-	# --- Experiment - validation ---
+	# --> Training
+
+	simulator = Simulator(agent=agent,
+						  env=env,
+						  visualizer=visualizer,
+						  results_path=results_path)
+	simulator.train(n_episode=n_episode_training,
+					save_per_episode=1,
+					exploration_decay=exploration_decay,
+					exploration_min=exploration_min,
+					print_t=print_t,
+					exploration_init=exploration_init)
+	agent.model = load_model(path=os.path.join(results_path, 'model'),
+							 learning_rate=learning_rate)
+
+	# ---> Validation (in-sample)
+
 	print('='*20+'\nin-sample testing\n'+'='*20)
-	simulator.test(n_episode_testing, save_per_episode=1, subfld='in-sample testing')
+	simulator.test(n_episode=n_episode_testing,
+				   save_per_episode=1,
+				   subfld='in-sample testing')
 
-	# --- Experiment - testing ---
+	# --> Testing (out-of-sample)
+
 	fld = os.path.join('data', asset_type, db+'B')
 	sampler = DataFetcher('load', data_path=fld)
 	simulator.env.sampler = sampler
@@ -153,5 +126,7 @@ if __name__ == '__main__':
 	main()
 
 
+# TODO: investigate simulator/play_one_episode
 # TODO: update Environment, Agent and test simple training experiment
-# TODO:
+# TODO: in emulator/market class review meaning of direction and risk_averse parameters
+

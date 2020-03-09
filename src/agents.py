@@ -1,4 +1,7 @@
-from lib import *
+import random, os, datetime, pickle, json, keras, sys
+import pandas as pd
+import matplotlib.pyplot as plt
+import numpy as np
 
 class Agent:
 
@@ -127,7 +130,7 @@ class QModelMLP(QModelKeras):
 	# multi-layer perception (MLP), i.e., dense only
 
 	def init(self):
-		self.qmodel = 'MLP'	
+		self.qmodel = 'MLP'
 
 	def build_model(self, n_hidden, learning_rate, drop_rate, activation='relu'):
 

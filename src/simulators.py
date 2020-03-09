@@ -44,20 +44,20 @@ class Simulator:
 	def train(self, n_episode, 
 		save_per_episode=10, exploration_decay=0.995, exploration_min=0.01, print_t=False, exploration_init=1.):
 
-		fld_model = os.path.join(self.fld_save,'model')
-		makedirs(fld_model)	# don't overwrite if already exists
-		with open(os.path.join(fld_model,'QModel.txt'),'w') as f:
+		model_path = os.path.join(self.results_path, 'model')
+		makedirs(model_path)	# don't overwrite if already exists
+		with open(os.path.join(model_path,'QModel.txt'),'w') as f:
 			f.write(self.agent.model.qmodel)
 
 		exploration = exploration_init
-		fld_save = os.path.join(self.fld_save,'training')
+		results_path = os.path.join(self.results_path, 'training')
 
-		makedirs(fld_save)
+		makedirs(results_path)
 		MA_window = 100		# MA of performance
 		safe_total_rewards = []
 		explored_total_rewards = []
 		explorations = []
-		path_record = os.path.join(fld_save,'record.csv')
+		path_record = os.path.join(results_path,'record.csv')
 
 		with open(path_record,'w') as f:
 			f.write('episode,game,exploration,explored,safe,MA_explored,MA_safe\n')
@@ -88,31 +88,31 @@ class Simulator:
 			
 			if n%save_per_episode == 0:
 				print('saving results...')
-				self.agent.save(fld_model)
+				self.agent.save(model_path)
 
 				"""
 				self.visualizer.plot_a_episode(
 					self.env, self.agent.model, 
 					explored_cum_rewards, explored_actions,
 					safe_cum_rewards, safe_actions,
-					os.path.join(fld_save, 'episode_%i.png'%(n)))
+					os.path.join(results_path, 'episode_%i.png'%(n)))
 
 				self.visualizer.plot_episodes(
 					explored_total_rewards, safe_total_rewards, explorations, 
-					os.path.join(fld_save, 'total_rewards.png'),
+					os.path.join(results_path, 'total_rewards.png'),
 					MA_window)
 					"""
 
 
 
 
-	def test(self, n_episode, save_per_episode=10, subfld='testing'):
+	def test(self, n_episode, save_per_episode=10, sub_folder='testing'):
 
-		fld_save = os.path.join(self.fld_save, subfld)
-		makedirs(fld_save)
+		results_path = os.path.join(self.results_path, sub_folder)
+		makedirs(results_path)
 		MA_window = 100		# MA of performance
 		safe_total_rewards = []
-		path_record = os.path.join(fld_save,'record.csv')
+		path_record = os.path.join(results_path, 'record.csv')
 
 		with open(path_record,'w') as f:
 			f.write('episode,game,pnl,rel,MA\n')
@@ -141,23 +141,23 @@ class Simulator:
 				self.env, self.agent.model,
 				[np.nan]*len(safe_cum_rewards), [np.nan]*len(safe_actions),
 				safe_cum_rewards, safe_actions,
-				os.path.join(fld_save, 'episode_%i.png'%(n)))
+				os.path.join(results_path, 'episode_%i.png' % (n)))
 
 			self.visualizer.plot_episodes(
 				None, safe_total_rewards, None,
-				os.path.join(fld_save, 'total_rewards.png'),
+				os.path.join(results_path, 'total_rewards.png'),
 				MA_window)
 
 					
 
 
 
-	def __init__(self, agent, env, visualizer, fld_save):
+	def __init__(self, agent, env, visualizer, results_path):
 
 		self.agent = agent
 		self.env = env
 		self.visualizer = visualizer
-		self.fld_save = fld_save
+		self.results_path = results_path
 
 
 
